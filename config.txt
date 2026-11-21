@@ -1,0 +1,8 @@
+producer-threads=3
+consumer-threads=5
+max-queue-length=10000
+Paste file directory here (separate with enter):
+toupload/video3
+toupload/video5
+toupload/video2
+
