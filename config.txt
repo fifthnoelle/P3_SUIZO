@@ -1,8 +1,11 @@
-producer-threads=3
+producer-threads=6
 consumer-threads=5
-max-queue-length=10000
+max-queue-length=1000
 Paste file directory here (separate with enter):
-toupload/video3
-toupload/video5
-toupload/video2
+/home/fifthnoelle/Documents/PS3 Pair/toupload/video1
+/home/fifthnoelle/Documents/PS3 Pair/toupload/video2
+/home/fifthnoelle/Documents/PS3 Pair/toupload/video8
+/home/fifthnoelle/Documents/PS3 Pair/toupload/video9
+/home/fifthnoelle/Documents/PS3 Pair/toupload/video6
+/home/fifthnoelle/Documents/PS3 Pair/toupload/video3
 

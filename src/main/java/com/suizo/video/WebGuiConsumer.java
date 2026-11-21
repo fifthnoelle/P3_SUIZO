@@ -55,8 +55,7 @@ public class WebGuiConsumer {
             httpsServer.createContext("/", this::handleIndex);
             httpsServer.createContext("/api/videos", this::handleVideoList);
             httpsServer.createContext("/videos/", this::handleVideoStream);
-            httpsServer.setExecutor(null);
-
+            httpsServer.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
 
         } catch (Exception e) {
             throw new IOException("Failed to initialize HTTPS server: " + e.getMessage(), e);
@@ -69,7 +68,7 @@ public class WebGuiConsumer {
 
     public void start() {
         httpsServer.start();
-        System.out.println("Consumer Web GUI running at: http://localhost:" + httpsServer.getAddress().getPort());
+        System.out.println("Consumer Web GUI running at: https://localhost:" + httpsServer.getAddress().getPort());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> httpsServer.stop(0)));
     }
 
@@ -370,23 +369,29 @@ public class WebGuiConsumer {
 
     private void handleVideoList(HttpExchange exchange) throws IOException {
 
+
         File dir = new File("uploadedvideos");
         String json = "[]";
 
 
+
         if (dir.exists() && dir.isDirectory()) {
-            File[] files = dir.listFiles((d, name) -> name.toLowerCase().endsWith(".mp4"));
+
+            File[] files = dir.listFiles((d, name) ->
+                    name.toLowerCase().endsWith(".mp4") && new File(d, name + ".meta").exists()
+            );
 
 
             if (files != null) {
+
+                Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
+
+
                 json = Arrays.stream(files).map(f -> {
                     String filename = f.getName();
                     String videoId = "Unknown";
-                    String videoName = filename; // fallback to filename if no metadata exists
+                    String videoName = filename;
 
-
-
-                    // Look for a companion .meta file (e.g. video.mp4.meta)
 
                     File metaFile = new File(dir, filename + ".meta");
 
@@ -394,7 +399,6 @@ public class WebGuiConsumer {
                     if (metaFile.exists()) {
 
                         try (FileInputStream fis = new FileInputStream(metaFile)) {
-
                             Properties props = new Properties();
                             props.load(fis);
                             videoId = props.getProperty("id", videoId);
@@ -404,23 +408,18 @@ public class WebGuiConsumer {
 
                     }
 
-
-
-                    // Build JSON object: {"filename": "vid.mp4", "id": "123", "name": "Cool Video"}
-
                     return String.format("{\"filename\":\"%s\", \"id\":\"%s\", \"name\":\"%s\"}",
                             filename.replace("\"", "\\\""),
                             videoId.replace("\"", "\\\""),
                             videoName.replace("\"", "\\\""));
 
-                    }).collect(Collectors.joining(",", "[", "]"));
 
+
+                }).collect(Collectors.joining(",", "[", "]"));
 
             }
 
-
         }
-
 
 
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
@@ -465,14 +464,17 @@ public class WebGuiConsumer {
             long contentLength = end - start + 1;
 
 
+
             exchange.getResponseHeaders().set("Content-Type", "video/mp4");
             exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
+            exchange.getResponseHeaders().set("Cache-Control", "no-store"); // FIX: Prevent browser caching broken streams
             exchange.getResponseHeaders().set("Content-Range", "bytes " + start + "-" + end + "/" + fileLength);
             exchange.sendResponseHeaders(206, contentLength);
 
 
             try (RandomAccessFile raf = new RandomAccessFile(file, "r");
                  OutputStream os = exchange.getResponseBody()) {
+
 
                 raf.seek(start);
                 byte[] buffer = new byte[8192];
@@ -486,9 +488,11 @@ public class WebGuiConsumer {
                     remaining -= read;
                 }
 
+            } catch (IOException ignored) {
             }
 
         } else {
+
             exchange.getResponseHeaders().set("Content-Type", "video/mp4");
             exchange.sendResponseHeaders(200, fileLength);
 
